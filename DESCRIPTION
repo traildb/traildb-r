@@ -1,0 +1,14 @@
+Package: RTraildb
+Type: Package
+Title: R Interface to Traildb
+Version: 0.1
+Date: 2015-12-14
+Authors@R: c(
+    person("Asif", "Imran", , "asif.imran@adroll.com", role = "aut"),
+    person("Bryan", "Galvin", , "bryan.galvin@adroll.com", role = c("aut", "cre")),
+    person("AdRoll", role = "cph")
+    )
+Description: More about what it does (maybe more than one line)
+License: GPL (>= 2)
+Imports: Rcpp (>= 0.12.2)
+LinkingTo: Rcpp
