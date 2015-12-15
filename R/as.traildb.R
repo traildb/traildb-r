@@ -11,5 +11,5 @@ as.traildb <- function(X, ...) {
   }
 }
 
-#' @rdname as.shinystan
+#' @rdname as.traildb
 is.traildb <- function(object) inherits(object, "traildb")
