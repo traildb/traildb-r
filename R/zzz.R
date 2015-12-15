@@ -1,4 +1,3 @@
-
 ## Up until R 2.15.0, the require("methods") is needed but (now)
 ## triggers an warning from R CMD check
 #.onLoad <- function(libname, pkgname){
@@ -11,4 +10,6 @@
 ## a load action, so this does not have to be placed in .onLoad() or evalqOnLoad().
 loadModule("traildb", TRUE)
 
-
+.onUnload <- function (libpath) {
+  library.dynam.unload("RTraildb", libpath)
+}
