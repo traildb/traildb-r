@@ -1,3 +1,3 @@
 useDynLib(RTraildb)
 exportPattern("^[[:alpha:]]+")
-importFrom(Rcpp, evalCpp)
+import(methods, Rcpp)
