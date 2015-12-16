@@ -1,7 +1,7 @@
 #include <Rcpp.h>
 #include <stdint.h>
 #include <functional>
-#include "TrailDB.h"
+#include "CPPTrailDB.h"
 
 using namespace Rcpp;
 
@@ -17,7 +17,44 @@ NumericVector get_ts_vector(TrailDB* tdb, uint64_t tdb_uuid) {
 //GetTimestamp
 
 //Unpack the entire traildb into a dataframe
-List tdb_dataframe(TrailDB* tdb) {
+List tdb_dataframe(TrailDB* tdb,
+    uint32_t first_trail = 0,
+    uint32_t last_trail = 0,
+    bool sample = false,
+    double fraction = 1.0,
+    uint32_t start_timestamp = 0,
+    uint32_t stop_timestamp = 0,
+    std::string filter = ""
+    ) {
+
+  //sanity checks
+  if(sample && (fraction < 0  || fraction > 1)) {
+    Rcpp::stop("fraction must be within 0 and 1");
+  }
+  
+
+  //
+  if(first_trail > last_trail)
+    Rcpp::stop("last_trail must be equal to or larger than first_trail");
+
+  if (start_timestamp > stop_timestamp)
+    Rcpp::stop("stop_timestamp must be equal to or larger than start_timestamp");
+
+  bool doFilterTrail = false;
+  if (first_trail != 0| last_trail != 0) {
+    doFilterTrail = true;
+  }
+
+  bool doFilterTimestamp = false;
+  if (start_timestamp != 0| stop_timestamp != 0) {
+    doFilterTimestamp = true;
+  }
+
+  bool doFilterType = false;
+  if (filter.compare("")) {
+    doFilterType = true;
+  }
+
   uint64_t tot_cookies = tdb->GetNumberOfCookies();
 
   std::vector<std::string> vDimNames = tdb->GetDimNames();
@@ -33,6 +70,10 @@ List tdb_dataframe(TrailDB* tdb) {
   for (uint64_t num = 0; num < tot_cookies; ++num) {
     EventListPtr eventList = tdb->LoadEvents(num);
 
+    if (sample && R::runif(0,1) >= fraction) continue;
+    if (doFilterTrail && num < first_trail) continue;
+    if (doFilterTrail && num> last_trail) break;
+
     EventList::EventIterator evtIter;
 
     //Number of trails
@@ -44,8 +85,16 @@ List tdb_dataframe(TrailDB* tdb) {
         evtIter != eventList->EventsEnd();
         ++evtIter) {
 
+      uint32_t ts = evtIter->GetTimestamp();
+
+      if (doFilterTimestamp && 
+          (ts < start_timestamp || ts > stop_timestamp )) continue;
+
+      if (doFilterType && (filter.compare(evtIter->GetEventType())) ) continue;
+
       vcookies.push_back(tdb->GetHexCookieByInd(num));
-      vts.push_back(evtIter->GetTimestamp());
+      vts.push_back(ts);
+
       int nd = 0; 
       for(std::vector<std::string>::iterator it = vDimNames.begin();
           it != vDimNames.end();

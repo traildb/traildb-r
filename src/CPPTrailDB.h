@@ -58,6 +58,10 @@ class Event {
     bool IsEventType(std::string type){
       return GetTrail("type") == type;
     }
+    
+    std::string GetEventType() {
+      return GetTrail("type");
+    }
 
     // Define time sorting of events
     bool operator<(const Event& e) const {return timestamp_ < e.timestamp_;}
