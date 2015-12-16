@@ -337,6 +337,7 @@ EventListPtr TrailDB::LoadEvents(uint64_t cookie_index) {
     std::vector<std::string>::const_iterator di = dimNames_.begin();
     while (i < count && buff_[i]) {
       std::stringstream ss;
+      ss.str("");
       if(di == dimNames_.end()) {
         std::cerr <<"Reached premature end of dimension names"<<std::endl;
       }

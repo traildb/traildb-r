@@ -2,6 +2,9 @@
 % Please edit documentation in R/as.traildb.R
 \name{is.traildb}
 \alias{is.traildb}
+\title{
+  \packageTitle{is.traildb}
+}
 \usage{
 is.traildb(object)
 }
