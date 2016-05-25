@@ -1,52 +1,64 @@
 #include <Rcpp.h>
 #include <stdint.h>
 #include <functional>
-#include "CPPTrailDB.h"
+#include "RTraildb.h"
 
 using namespace Rcpp;
 
-CharacterVector get_dimensions(TrailDB* tdb) {
-  return wrap(tdb->GetDimNames());
+// [[Rcpp::export]]
+List read_trails_meta(List tdbSpec, bool verbose = false) {
+  TrailDBPtr tdb = RTrailDB::Create(tdbSpec);
+  std::vector<std::string> fnames = tdb->GetDimNames();
+  std::vector<uint32_t> fsize;
+  for(auto it = fnames.begin(); it != fnames.end(); ++it) {
+    fsize.push_back(tdb->GetFieldSize(*it));
+  }
+
+  return List::create(
+    _["number_of_uuids"] = tdb->GetNumberOfUUIDs(),
+    _["number_of_events"] = tdb->GetNumberOfEvents(),
+    _["number_of_dimensions"] = tdb->GetNumberOfFields(),
+    _["dimensions"] = tdb->GetDimNames(),
+    _["dimensions_uniques"] = fsize,
+    _["min_timestamp"] = tdb->GetMinTimestamp(),
+    _["max_timestamp"] = tdb->GetMaxTimestamp()
+  );
 }
 
-NumericVector get_ts_vector(TrailDB* tdb, uint64_t tdb_uuid) {
-  return wrap(tdb->GetTimestampVector(tdb_uuid));
-}
+// The following will return a data frame object
+// [[Rcpp::export]]
+RObject read_trails(List tdbSpec,
+                    uint32_t first_trail = 0,
+                    uint32_t last_trail = 0,
+                    bool sample = false,
+                    double fraction = 1.0,
+                    uint32_t start_timestamp = 0,
+                    uint32_t stop_timestamp = 0,
+                    std::string filter = "",
+                    bool verbose=false) {
 
-//Things to get frmo events
-//GetTimestamp
-
-//Unpack the entire traildb into a dataframe
-List tdb_dataframe(TrailDB* tdb,
-    uint32_t first_trail = 0,
-    uint32_t last_trail = 0,
-    bool sample = false,
-    double fraction = 1.0,
-    uint32_t start_timestamp = 0,
-    uint32_t stop_timestamp = 0,
-    std::string filter = ""
-    ) {
+  TrailDBPtr tdb = RTrailDB::Create(tdbSpec);
 
   //sanity checks
   if(sample && (fraction < 0  || fraction > 1)) {
     Rcpp::stop("fraction must be within 0 and 1");
   }
-  
 
-  //
-  if(first_trail > last_trail)
+  if(first_trail > last_trail) {
     Rcpp::stop("last_trail must be equal to or larger than first_trail");
+  }
 
-  if (start_timestamp > stop_timestamp)
+  if (start_timestamp > stop_timestamp) {
     Rcpp::stop("stop_timestamp must be equal to or larger than start_timestamp");
+  }
 
   bool doFilterTrail = false;
-  if (first_trail != 0| last_trail != 0) {
+  if (first_trail != 0 | last_trail != 0) {
     doFilterTrail = true;
   }
 
   bool doFilterTimestamp = false;
-  if (start_timestamp != 0| stop_timestamp != 0) {
+  if (start_timestamp != 0 | stop_timestamp != 0) {
     doFilterTimestamp = true;
   }
 
@@ -55,112 +67,76 @@ List tdb_dataframe(TrailDB* tdb,
     doFilterType = true;
   }
 
-  uint64_t tot_cookies = tdb->GetNumberOfCookies();
 
+  // Strategy is to fill columns into corresponding vectors
   std::vector<std::string> vDimNames = tdb->GetDimNames();
-
-  //create list per events
-  //append to list of events
-
   std::vector<std::vector<std::string> > colVector(vDimNames.size());
-  std::vector<std::string> vcookies;
+  std::vector<std::string> vuuids;
   std::vector<std::uint32_t> vts;
 
+  uint64_t tot_uuids = tdb->GetNumberOfUUIDs();
 
-  for (uint64_t num = 0; num < tot_cookies; ++num) {
+  // Process all trails if not stated otherwise
+  if (!doFilterTrail) {
+    last_trail = tot_uuids;
+  }
+
+  for (uint64_t num = first_trail; num < last_trail; ++num) {
     EventListPtr eventList = tdb->LoadEvents(num);
 
+    if (num % 5000 == 0)
+      Rcpp::checkUserInterrupt();
+
     if (sample && R::runif(0,1) >= fraction) continue;
-    if (doFilterTrail && num < first_trail) continue;
-    if (doFilterTrail && num> last_trail) break;
 
     EventList::EventIterator evtIter;
 
-    //Number of trails
+    //Number of trails for current uuid
     uint32_t evtSize = eventList->GetSize();
 
-    List rowList(evtSize);
-
     for (evtIter = eventList->EventsBegin();
-        evtIter != eventList->EventsEnd();
-        ++evtIter) {
+         evtIter != eventList->EventsEnd();
+         ++evtIter) {
 
       uint32_t ts = evtIter->GetTimestamp();
 
-      if (doFilterTimestamp && 
+      if (doFilterTimestamp &&
           (ts < start_timestamp || ts > stop_timestamp )) continue;
 
       if (doFilterType && (filter.compare(evtIter->GetEventType())) ) continue;
 
-      vcookies.push_back(tdb->GetHexCookieByInd(num));
+      vuuids.push_back(tdb->GetHexUUIDByInd(num));
       vts.push_back(ts);
 
-      int nd = 0; 
+      int nd = 0;
       for(std::vector<std::string>::iterator it = vDimNames.begin();
           it != vDimNames.end();
-        ++it ) {
-
-        colVector[nd].push_back(evtIter->GetTrail(*it));
+          ++it ) {
+        if((*it).compare("time")) {
+          colVector[nd].push_back(evtIter->GetTrail(*it));
+        }
+        else{
+          colVector[nd].push_back("");
+        }
         ++nd;
       }
     }
   }
 
-  std::vector<std::string> col_names(2 + vDimNames.size());
-  List finalList =  List(1 + 1 + vDimNames.size());
-  finalList[0] = vcookies; col_names[0] = "uuid";
-  finalList[1] = vts; col_names[1] = "timestamp";
+  //Set the column names
+  std::vector<std::string> colNames(2 + vDimNames.size());
+  List out =  List(2 + vDimNames.size());
+  out[0] = vuuids; colNames[0] = "uuid";
+  out[1] = vts; colNames[1] = "timestamp";
   for (int k = 0; k < vDimNames.size(); ++k) {
-    finalList[k+2] = colVector[k];
-    col_names[k+2] = vDimNames[k];
+    out[k+2] = colVector[k];
+    colNames[k+2] = vDimNames[k];
   }
 
-  //odd hack to convert list into a dataframe
-  // http://gallery.rcpp.org/articles/faster-data-frame-creation
-  List returned_frame = clone(finalList);
-  GenericVector sample_row = returned_frame(0);
+  out.attr("row.names") = IntegerVector::create(NA_INTEGER, -(vuuids.size()));
+  out.attr("names") = colNames;
+  out.attr("class") = CharacterVector::create("tbl_df", "tbl", "data.frame");
 
-  StringVector row_names(sample_row.length());
-  for (int i = 0; i < sample_row.length(); ++i ) {
-    char names[5];
-    sprintf(&(names[0]),"%d",i);
-    row_names(i) = names;
-  }
-  returned_frame.attr("row.names") = row_names;
+  return out;
 
-  returned_frame.attr("names") = col_names;
-  returned_frame.attr("class") = "data.frame";
-
-  return returned_frame;
-}
-
-
-RCPP_MODULE(traildb) {
-
-  class_<TrailDB>( "TrailDB" )
-
-  .constructor<std::string>()
-
-  .method("get_ncookies", &TrailDB::GetNumberOfCookies, "Get Number of cookies")
-
-  .method("get_max_timestamp", &TrailDB::GetMaxTimestamp, "Get Maximum Timestamp in DB")
-
-  .method("get_min_timestamp", &TrailDB::GetMinTimestamp, "Get Minimum Timestamp in DB")
-
-  .method("get_ndimension", &TrailDB::GetNumberOfDimensions,"Get Number of Dimensions")
-
-  .method("has_tdb_uuid_index", &TrailDB::HasCookieIndex, "tdb_uuid exists at index")
-
-  .method("get_nevents", &TrailDB::GetNumberOfEventsByType,
-      "Get number of events by event type for a particular cookie by index")
-
-  .method("get_hext_tdb_uuid", &TrailDB::GetHexCookieByInd, "Get Hex value for tdb_uuid at index")
-
-  .method("get_ts_vector", &get_ts_vector)
-
-  .method("get_dim_names", &get_dimensions)
-
-  .method("tdb_dataframe", &tdb_dataframe)
-
-  ;
 }
