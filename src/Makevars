@@ -1,12 +1,3 @@
-RTDB_CFLAGS =-I/usr/include/openssl -I/mnt/bi-data/home/asifimran/data/asif/traildb_ai/src
-RTDB_LIBS = -Wl,-rpath,`pwd` -Wno-narrowing -lcrypto -L/usr/lib/x86_64-linux-gnu -L/mnt/bi-data/home/asifimran/data/asif/traildb_latest/lib -ltraildb
-
-CXXFLAGS = -rdynamic -g -O3 -Wall -Wno-narrowing
-PKG_CPPFLAGS = --std=c++11 -Wno-narrowing -O3 -D_REENTRANT -I../inst/include/ ${RTDB_CFLAGS} $(SHLIB_PTHREAD_FLAGS)
-PKG_LIBS = `Rscript -e "Rcpp:::LdFlags()"` ${RTDB_LIBS} $(SHLIB_PTHREAD_FLAGS)
-
-
-all: sublib
-
-sublib: 
-		@(cp /mnt/bi-data/home/asifimran/data/asif/traildb_latest/lib/libtrail* . ) || exit 1;
+CXX_STD = CXX11
+PKG_CPPFLAGS += -I/usr/local/include
+PKG_LIBS += -L/usr/local/lib -ltraildb

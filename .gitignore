@@ -1,3 +1,5 @@
 *.so
 *.o
 *.a
+.Rproj.user
+.*.Rproj

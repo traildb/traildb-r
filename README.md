@@ -3,7 +3,12 @@ TrailDB R bindings
 
 ![TrailDB logo](traildb_logo_512.png?raw=true)
 
-A minimal R binding for traildb C API [TrailDB](http://traildb.io/).
+A minimal R binding for traildb C API [TrailDB](http://traildb.io/). The initial
+goal for this project was to allow interactive querying of traildb data in a
+more R-friendly manner (think dataframes!).
+
+It has a dependency on the [traildb-cpp](https://github.com/traildb/traildb-cpp)
+project.
 
 How to build
 ------------
