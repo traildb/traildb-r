@@ -7,7 +7,7 @@ using namespace Rcpp;
 
 // [[Rcpp::export]]
 List read_trails_meta(List tdbSpec, bool verbose = false) {
-  TrailDBPtr tdb = RTrailDB::Create(tdbSpec);
+  auto tdb = RTrailDB::Create(tdbSpec);
   std::vector<std::string> fnames = tdb->GetDimNames();
   std::vector<uint32_t> fsize;
   for(auto it = fnames.begin(); it != fnames.end(); ++it) {
@@ -37,7 +37,7 @@ RObject read_trails(List tdbSpec,
                     std::string filter = "",
                     bool verbose=false) {
 
-  TrailDBPtr tdb = RTrailDB::Create(tdbSpec);
+  auto tdb = RTrailDB::Create(tdbSpec);
 
   //sanity checks
   if(sample && (fraction < 0  || fraction > 1)) {
@@ -82,7 +82,7 @@ RObject read_trails(List tdbSpec,
   }
 
   for (uint64_t num = first_trail; num < last_trail; ++num) {
-    EventListPtr eventList = tdb->LoadEvents(num);
+    auto eventList = tdb->LoadEvents(num);
 
     if (num % 5000 == 0)
       Rcpp::checkUserInterrupt();

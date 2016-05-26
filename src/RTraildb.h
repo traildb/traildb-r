@@ -14,28 +14,27 @@ using namespace Rcpp;
 #include <string.h>
 #include <stdint.h>
 #include <fstream>
+#include <memory>
 
-#include "TrailDBcpp.h"
-#include <PointerTypedefs.h>
+#include <TrailDBcpp.h>
 #include <ByteManipulations.h>
 
 class TrailDB;
-SHARED_POINTER_TYPEDEFS(TrailDB);
 
 class RTrailDB {
 
 public:
   RTrailDB(std::string dbpath);
   virtual ~RTrailDB();
-  static TrailDBPtr Create(Rcpp::List spec);
+  static std::shared_ptr<TrailDB> Create(Rcpp::List spec);
   std::string dbPath_;
 
 };
 
 
-TrailDBPtr RTrailDB::Create(Rcpp::List spec) {
+std::shared_ptr<TrailDB> RTrailDB::Create(Rcpp::List spec) {
   std::string filename = as<std::string>(spec["name"]);
-  return TrailDBPtr(new TrailDB(filename));
+  return std::make_shared<TrailDB>(filename);
 }
 
 
